@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Critter Pac-Maze (萌宠吃豆人): 8-Chapter Smiling Critters Pac-Man adventure where each chapter uses a different Critter Head to chomp themed beans and outsmart Nightmare villains!" />
+  <title>Critter Pac-Maze · 萌宠吃豆人</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- TOP HUD BAR -->
+    <header id="topBar">
+      <div class="brand-box">
+        <img id="topCritterAvatar" class="brand-avatar" src="icons/dogday.jpg" alt="Active Critter Head" />
+        <div class="brand-titles">
+          <h1 id="topChapterTitle">CH.1 DOGDAY · 日犬吃豆人</h1>
+          <span id="topChapterSub">Sunlit Meadow · 阳光草甸迷宫 (Eat all ☀️ Sun Beans!)</span>
+        </div>
+      </div>
+
+      <div class="hud-stats">
+        <div class="stat-pill" title="Remaining Beans in Chapter">
+          <span>🫘</span>
+          <span class="lbl">Beans</span>
+          <b id="beansLeftCount">0/0</b>
+        </div>
+        <div class="stat-pill" title="Current Score">
+          <span>⭐</span>
+          <span class="lbl">Score</span>
+          <b id="scoreCount">0</b>
+        </div>
+        <div class="stat-pill" title="High Score">
+          <span>🏆</span>
+          <span class="lbl">Best</span>
+          <b id="highScoreCount">0</b>
+        </div>
+        <div class="stat-pill" title="Remaining Lives">
+          <span>❤️</span>
+          <span class="lbl">Lives</span>
+          <b id="livesCount">3</b>
+        </div>
+      </div>
+
+      <div class="hud-actions">
+        <button id="topSkillBtn" class="toy-btn mint" title="Activate Critter Skill (Space)">
+          ⚡ <span id="topSkillLabel">Skill · 技能</span>
+        </button>
+        <button id="saveGameBtn" class="toy-btn icon-btn" title="Save Progress · 保存进度">💾</button>
+        <button id="openMenuBtn" class="toy-btn icon-btn" title="Main Menu & Chapters · 主菜单">🏠</button>
+        <button id="pauseBtn" class="toy-btn icon-btn" title="Pause / Resume · 暂停">⏸</button>
+        <button id="musicBtn" class="toy-btn icon-btn" title="Toggle Music · 音乐">🎵</button>
+        <button id="sfxBtn" class="toy-btn icon-btn" title="Toggle Sound · 音效">🔊</button>
+      </div>
+    </header>
+
+    <!-- 8-CHAPTER CRITTER HEAD SELECTOR STRIP -->
+    <nav id="chapterStrip" aria-label="Chapter Critter Selector"></nav>
+
+    <!-- MAIN WORKSPACE: MAZE STAGE + SIDE DOCK -->
+    <main id="gameWorkspace">
+      <div id="stageContainer">
+        <canvas id="mazeCanvas" width="672" height="608"></canvas>
+        <div id="floatingBanner" class="hidden">🌟 READY! · 准备出发！</div>
+      </div>
+
+      <aside id="sideDock">
+        <!-- ACTIVE CRITTER HEAD & SKILL CARD -->
+        <div class="dock-card critter-showcase">
+          <div class="critter-header">
+            <div class="critter-big-head-wrap">
+              <img id="dockCritterImg" class="critter-big-head" src="icons/dogday.jpg" alt="Critter Head" />
+              <span id="dockBeanBadge" class="chomp-badge">☀️</span>
+            </div>
+            <div class="critter-meta">
+              <h2 id="dockCritterName">DogDay · 日犬</h2>
+              <div id="dockChapterBadge" class="chap-sub">Chapter 1 / 8 · 第一章</div>
+              <div id="dockBeanDesc" class="bean-desc">Chomps Golden Sun Beans · 吞吃金阳豆</div>
+            </div>
+          </div>
+
+          <div class="skill-box">
+            <div class="skill-row">
+              <span id="dockSkillName" class="skill-name">☀️ Solar Dash · 阳光冲刺</span>
+              <button id="dockSkillBtn" class="toy-btn mint" style="padding: 4px 10px; font-size: 12px;">
+                SPACE · 释放
+              </button>
+            </div>
+            <div id="dockSkillDesc" class="skill-desc">
+              2.6s blazing speed + solar shield that repels ghosts! · 加速冲刺并免疫幽灵碰撞！
+            </div>
+            <div class="skill-bar-track">
+              <div id="skillCooldownFill" class="skill-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- NIGHTMARE VILLAINS RADAR -->
+        <div class="dock-card">
+          <div class="ghost-radar-title">
+            <span>👻 Maze Villains · 迷宫反派</span>
+            <span id="frightTimerBadge" style="color:#1971c2;"> Patrol · 巡逻中</span>
+          </div>
+          <div id="ghostRadarList" class="ghost-list">
+            <div class="ghost-chip"><img src="icons/huggy.jpg" alt="Huggy" /><span>Huggy · 哈吉</span></div>
+            <div class="ghost-chip"><img src="icons/mommy.jpg" alt="Mommy" /><span>Mommy · 蜘蛛妈</span></div>
+            <div class="ghost-chip"><img src="icons/pj.jpg" alt="PJ" /><span>PJ Pug · 毛毛虫</span></div>
+            <div class="ghost-chip"><img src="icons/bunzo.jpg" alt="Bunzo" /><span>Bunzo · 邦佐兔</span></div>
+          </div>
+        </div>
+
+        <!-- D-PAD + KEYBOARD / TOUCH CONTROLS -->
+        <div class="dock-card controls-card">
+          <div class="dpad-grid">
+            <div></div>
+            <button class="dpad-btn" data-dir="up" id="dpadUp" aria-label="Move Up">▲</button>
+            <div></div>
+            <button class="dpad-btn" data-dir="left" id="dpadLeft" aria-label="Move Left">◀</button>
+            <button class="dpad-btn" data-dir="down" id="dpadDown" aria-label="Move Down">▼</button>
+            <button class="dpad-btn" data-dir="right" id="dpadRight" aria-label="Move Right">▶</button>
+          </div>
+          <div class="controls-hint">
+            ⌨️ WASD / Arrows · Space = Skill · 👆 Tap/Swipe Maze or D-Pad
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- MAIN MENU & CHAPTER SELECT MODAL -->
+    <div id="mainMenuModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <h2 class="modal-title">🍒 CRITTER PAC-MAZE · 萌宠吃豆人大冒险</h2>
+        <p class="modal-sub">
+          Each Chapter uses a different Smiling Critter Head with its own chomping mouth, bean flavor & special skill! · 每章切换不同萌宠头像吃豆闯关！
+        </p>
+
+        <div id="menuSaveStatus" class="save-status-box">
+          📂 Checking saved game... · 正在检查存档...
+        </div>
+
+        <div class="menu-controls-row">
+          <button id="menuNewGameBtn" class="toy-btn">🌟 New Game (Ch.1) · 新游戏</button>
+          <button id="menuLoadGameBtn" class="toy-btn mint">📂 Load Save · 读取存档</button>
+          <button id="menuResumeBtn" class="toy-btn sky">▶️ Resume · 继续当前关</button>
+        </div>
+
+        <div class="menu-controls-row">
+          <div class="speed-selector" id="speedSelector">
+            <span style="font-size:12px; font-weight:900; color:#5c432d; padding:0 4px;">Pace · 速度:</span>
+            <button class="speed-chip" data-speed="gentle">🐌 Gentle · 轻松</button>
+            <button class="speed-chip active" data-speed="normal">🐾 Arcade · 标准</button>
+            <button class="speed-chip" data-speed="turbo">🔥 Turbo · 极速</button>
+          </div>
+        </div>
+
+        <div style="font-size:13px; font-weight:900; color:#5c432d;">
+          🎭 Choose Any Chapter Critter Head · 选择章节与萌宠吃豆头像:
+        </div>
+        <div id="menuChapterGrid" class="chapter-grid"></div>
+      </div>
+    </div>
+
+    <!-- CHAPTER CLEAR / FINALE / GAME OVER MODAL -->
+    <div id="resultModal" class="modal-backdrop hidden">
+      <div class="modal-card" style="max-width: 560px;">
+        <div style="display:flex; justify-content:center; align-items:center; gap:14px;">
+          <img id="resultCritterImg" src="icons/dogday.jpg" alt="Critter" style="width:74px; height:74px; border-radius:50%; border:4px solid #ff9f1c; object-fit:cover;" />
+          <span id="resultArrow" style="font-size:28px; font-weight:900;">➔</span>
+          <img id="resultNextCritterImg" src="icons/catnap.jpg" alt="Next Critter" style="width:74px; height:74px; border-radius:50%; border:4px solid #20c997; object-fit:cover;" />
+        </div>
+        <h2 id="resultTitle" class="modal-title">🎉 CHAPTER CLEARED! · 本章吃豆通关！</h2>
+        <p id="resultSub" class="modal-sub">All beans chomped! Next Critter Head is ready!</p>
+        <div id="resultStatsBox" class="save-status-box"></div>
+        <div class="menu-controls-row">
+          <button id="resultPrimaryBtn" class="toy-btn mint">▶️ Next Chapter · 下一章换头吃豆</button>
+          <button id="resultRetryBtn" class="toy-btn">🔄 Replay Chapter · 重玩本章</button>
+          <button id="resultMenuBtn" class="toy-btn sky">🏠 Main Menu · 主菜单</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

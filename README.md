@@ -2,6 +2,10 @@
 
 An 8-Chapter Smiling Critters Pac-Man arcade adventure where **each chapter uses a different Critter Head** with an animated chomping mouth, custom bean flavor, unique maze layout, and active Critter skill!
 
+**Play Live:** [https://kunruiw1991.github.io/critters-pacman/](https://kunruiw1991.github.io/critters-pacman/)
+
+---
+
 ## 🎭 8 Playable Critter Head Chapters
 
 1. **Chapter 1 — DogDay (`icons/dogday.jpg`)**: Sunlit Meadow · Chomps `☀️` Golden Sun Beans · Skill: **Solar Dash** (`3.0s` speed boost + solar shield)
@@ -12,3 +16,12 @@ An 8-Chapter Smiling Critters Pac-Man arcade adventure where **each chapter uses
 6. **Chapter 6 — PickyPiggy (`icons/picky.jpg`)**: Golden Bakery · Chomps `🍎` Sweet Apple Beans · Skill: **Gourmet Vacuum** (`4.2`-tile bean magnet + `+250` Feast bonus)
 7. **Chapter 7 — Bubba Bubbaphant (`icons/bubba.jpg`)**: Starlight Observatory · Chomps `🔵` Wisdom Pearl Beans · Skill: **Cryo Nova** (`4.5s` `65%` ghost slow + shield)
 8. **Chapter 8 — KickinChicken (`icons/kickin.jpg`)**: Neon Arcade Finale · Chomps `⭐` Golden Star Beans · Skill: **Thunder Shock** (Zaps nearest ghost home + `3.5s` global Frightened mode)
+
+---
+
+## 🎮 Controls
+
+- **Move**: `WASD` / `Arrow Keys` / On-Screen D-Pad / Swipe on Canvas
+- **Active Critter Skill**: `Space` / `⚡ SKILL` Button
+- **Switch Chapter Anytime**: Click any of the `CH 1` – `CH 8` pills in the top header bar
+- **Pause / Language**: `P` (Pause) · `EN / 中文` toggle

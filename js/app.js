@@ -36,21 +36,22 @@ const DIRS = {
 };
 
 const SPEED_PRESETS = {
-  gentle: { playerSpeed: 5.2, ghostSpeed: 3.4, frightDuration: 8.5 },
-  normal: { playerSpeed: 5.8, ghostSpeed: 4.3, frightDuration: 7.0 },
-  turbo:  { playerSpeed: 6.6, ghostSpeed: 5.2, frightDuration: 5.5 }
+  gentle: { playerSpeed: 3.2, ghostSpeed: 1.75, frightDuration: 11.0 },
+  normal: { playerSpeed: 3.8, ghostSpeed: 2.15, frightDuration: 9.5 },
+  turbo:  { playerSpeed: 4.6, ghostSpeed: 2.75, frightDuration: 8.0 }
 };
 
 export const S = {
   phase: 'playing', // 'playing' | 'paused' | 'victory' | 'gameover'
   speedMode: 'normal',
+  immortalMode: true, // Colliding with ghosts bounces them away without dying!
   chapterIndex: 0,
   chapter: CHAPTERS[0],
   clearedChapters: new Set(),
   score: 0,
   highScore: 0,
-  lives: 3,
-  maxLives: 5,
+  lives: 99,
+  maxLives: 99,
   totalBeans: 0,
   beansLeft: 0,
   beansEaten: 0,
@@ -94,7 +95,7 @@ export function loadChapter(chapIdx, resetScoreAndLives = false) {
 
   if (resetScoreAndLives) {
     S.score = 0;
-    S.lives = 3;
+    S.lives = 99;
   }
 
   S.grid = [];
@@ -144,7 +145,7 @@ export function loadChapter(chapIdx, resetScoreAndLives = false) {
 
   renderChapterTabs();
   updateHUD();
-  showBanner(`🎭 ${chap.critterName} · Eat all ${chap.beanEmoji} Beans!`, 2.2);
+  showBanner(`🎭 ${chap.critterName} · Eat all ${chap.beanEmoji} Beans! (撞到不死)`, 2.2);
 }
 
 function resetPositionsAfterLifeLost(fullReset = false) {
@@ -158,12 +159,12 @@ function resetPositionsAfterLifeLost(fullReset = false) {
   S.player.shieldTimer = 0;
   S.player.dashTimer = 0;
 
-  // Spawn 4 Villain Ghosts in and around the Ghost House
+  // Spawn 4 Villain Ghosts in and around the Ghost House with relaxed staggered release
   const startPositions = [
-    { x: 10, y: 8,  dir: 'left',  releaseDelay: 0.0 },
-    { x: 9,  y: 11, dir: 'up',    releaseDelay: 1.5 },
-    { x: 10, y: 11, dir: 'up',    releaseDelay: 3.2 },
-    { x: 11, y: 11, dir: 'up',    releaseDelay: 5.0 }
+    { x: 10, y: 8,  dir: 'left',  releaseDelay: 0.5 },
+    { x: 9,  y: 11, dir: 'up',    releaseDelay: 2.5 },
+    { x: 10, y: 11, dir: 'up',    releaseDelay: 4.8 },
+    { x: 11, y: 11, dir: 'up',    releaseDelay: 7.2 }
   ];
 
   S.ghosts = VILLAINS.map((v, i) => {
@@ -518,7 +519,7 @@ export function updateGame(dt) {
       p.facingAngle = nxtD.angle;
     } else {
       const distToCenter = Math.hypot(p.x - Math.round(p.x), p.y - Math.round(p.y));
-      if (distToCenter <= 0.38 && canMoveInDir(Math.round(p.x), Math.round(p.y), p.nextDir, false)) {
+      if (distToCenter <= 0.45 && canMoveInDir(Math.round(p.x), Math.round(p.y), p.nextDir, false)) {
         p.x = Math.round(p.x);
         p.y = Math.round(p.y);
         p.dir = p.nextDir;
@@ -549,7 +550,7 @@ export function updateGame(dt) {
       if (d.dy !== 0) p.x += (Math.round(p.x) - p.x) * Math.min(1, dt * 16);
 
       // Animate WAKA-WAKA chomping mouth!
-      p.chompPhase += dt * 18 * speedMult;
+      p.chompPhase += dt * 15 * speedMult;
       p.mouthAngle = 0.05 + Math.abs(Math.sin(p.chompPhase)) * 0.68;
     } else {
       // Snap to tile center on wall stop
@@ -569,7 +570,7 @@ export function updateGame(dt) {
   if (S.phase !== 'playing') return;
 
   // --------------------------------------------------------------------------
-  // 2. UPDATE VILLAIN GHOSTS & COLLISION WITH CRITTER HEAD
+  // 2. UPDATE VILLAIN GHOSTS & NON-LETHAL BOUNCE COLLISION WITH CRITTER HEAD
   // --------------------------------------------------------------------------
   const oppositeDir = { left: 'right', right: 'left', up: 'down', down: 'up', none: 'none' };
 
@@ -582,8 +583,8 @@ export function updateGame(dt) {
       continue;
     }
 
-    let gSpeed = preset.ghostSpeed * (1 + S.chapterIndex * 0.03);
-    if (g.state === 'frightened') gSpeed *= 0.58;
+    let gSpeed = preset.ghostSpeed * (1 + S.chapterIndex * 0.01);
+    if (g.state === 'frightened') gSpeed *= 0.55;
     else if (g.state === 'eaten') gSpeed *= 1.65;
     if (S.slowTimer > 0 && g.state !== 'eaten') gSpeed *= 0.35;
 
@@ -608,7 +609,7 @@ export function updateGame(dt) {
       if (distCenter <= 0.18 && g.decisionCooldown <= 0) {
         g.x = gc;
         g.y = gr;
-        g.decisionCooldown = 0.45;
+        g.decisionCooldown = 0.48;
 
         if (g.state === 'eaten' && Math.hypot(g.x - g.homeX, g.y - g.homeY) <= 0.6) {
           g.state = 'normal';
@@ -630,7 +631,8 @@ export function updateGame(dt) {
           // Dead end or reverse allowed
           const rev = oppositeDir[g.dir];
           if (canMoveInDir(gc, gr, rev, true)) g.dir = rev;
-        } else if (g.state === 'frightened') {
+        } else if (g.state === 'frightened' || (g.state === 'normal' && Math.random() < 0.35)) {
+          // Frightened or relaxed wander so ghosts don't aggressively swarm
           g.dir = candidateDirs[Math.floor(Math.random() * candidateDirs.length)];
         } else {
           // Target tile: home if eaten, player (with personality offset) if normal
@@ -680,7 +682,7 @@ export function updateGame(dt) {
       }
     }
 
-    // Check collision between Critter Head and Ghost!
+    // Check collision between Critter Head and Ghost! (IMMORTAL / NO-DEATH MODE!)
     const distPG = Math.hypot(g.x - p.x, g.y - p.y);
     if (distPG <= 0.68) {
       if (g.state === 'frightened') {
@@ -693,26 +695,16 @@ export function updateGame(dt) {
         addPopup(g.x, g.y, `👻 +${pts}!`, '#72efdd');
         updateHUD();
       } else if (g.state === 'normal') {
-        if (p.shieldTimer > 0 || p.invulnTimer > 0) {
-          // Repel ghost harmlessly when shielded!
-          g.state = 'frightened';
-          S.frightTimer = Math.max(S.frightTimer, 1.5);
-          spawnParticles(g.x, g.y, S.chapter.ringColor, 10);
-        } else {
-          // Critter loses 1 life
-          S.lives--;
-          sound.hurt();
-          spawnParticles(p.x, p.y, '#ff5964', 18);
-          updateHUD();
-          if (S.lives <= 0) {
-            triggerGameOver();
-            return;
-          } else {
-            showBanner(`💔 Ouch! ${S.lives} ❤️ Left · 小心反派！剩余 ${S.lives} 命`, 1.8);
-            resetPositionsAfterLifeLost(false);
-            return;
-          }
-        }
+        // Never die on collision! Bounce & scare the ghost away so the player can chomp freely!
+        g.state = 'frightened';
+        g.dir = oppositeDir[g.dir] || 'up';
+        S.frightTimer = Math.max(S.frightTimer, 3.2);
+        p.invulnTimer = Math.max(p.invulnTimer, 1.5);
+        sound.powerPellet();
+        spawnParticles(g.x, g.y, S.chapter.ringColor, 14);
+        addPopup(p.x, p.y, `🛡️ BOING! (不死弹开!)`, '#ffd166');
+        showBanner(`🛡️ Boing! Bumped Ghost Away (No-Death Mode · 撞到不死，直接弹晕反派！)`, 1.6);
+        updateHUD();
       }
     }
   }
@@ -1210,7 +1202,7 @@ export function updateHUD() {
   setTxt('beansLeftCount', `${S.beansLeft}/${S.totalBeans}`);
   setTxt('scoreCount', S.score);
   setTxt('highScoreCount', S.highScore);
-  setTxt('livesCount', S.lives);
+  setTxt('livesCount', '∞');
 
   setSrc('dockCritterImg', chap.icon);
   setTxt('dockBeanBadge', chap.beanEmoji);

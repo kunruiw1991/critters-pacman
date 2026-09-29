@@ -1,5 +1,5 @@
-import { CHAPTERS, VILLAINS } from './chapters.js';
-import { sound } from './audio.js';
+import { CHAPTERS, VILLAINS } from './chapters.js?v=3';
+import { sound } from './audio.js?v=3';
 
 // ============================================================================
 // CRITTER PAC-MAZE · 萌宠吃豆人 (8 CHAPTERS, EACH WITH A UNIQUE CRITTER HEAD!)
@@ -159,12 +159,12 @@ function resetPositionsAfterLifeLost(fullReset = false) {
   S.player.shieldTimer = 0;
   S.player.dashTimer = 0;
 
-  // Spawn 4 Villain Ghosts in and around the Ghost House with relaxed staggered release
+  // Spawn 4 Villain Ghosts: Ghost 0 on open walkway (10, 9), Ghosts 1-3 inside Ghost House (row 11)
   const startPositions = [
-    { x: 10, y: 8,  dir: 'left',  releaseDelay: 0.5 },
-    { x: 9,  y: 11, dir: 'up',    releaseDelay: 2.5 },
-    { x: 10, y: 11, dir: 'up',    releaseDelay: 4.8 },
-    { x: 11, y: 11, dir: 'up',    releaseDelay: 7.2 }
+    { x: 10, y: 9,  dir: 'left',  releaseDelay: 0.4 },
+    { x: 9,  y: 11, dir: 'up',    releaseDelay: 2.2 },
+    { x: 10, y: 11, dir: 'up',    releaseDelay: 4.2 },
+    { x: 11, y: 11, dir: 'up',    releaseDelay: 6.2 }
   ];
 
   S.ghosts = VILLAINS.map((v, i) => {
@@ -175,7 +175,7 @@ function resetPositionsAfterLifeLost(fullReset = false) {
       x: pos.x,
       y: pos.y,
       homeX: 10,
-      homeY: 8,
+      homeY: 9,
       dir: pos.dir,
       state: 'normal', // 'normal' | 'frightened' | 'eaten'
       releaseTimer: pos.releaseDelay,
@@ -389,72 +389,122 @@ function triggerChapterVictory() {
   }
 
   if (statsEl) {
-    statsEl.textContent = `⭐ Score: ${S.score} · 🏆 Best: ${S.highScore} · ❤️ Lives: ${S.lives} · ✅ Cleared: ${S.clearedChapters.size}/${CHAPTERS.length}`;
-  }
-
-  document.getElementById('resultModal')?.classList.remove('hidden');
-}
-
-function triggerGameOver() {
-  S.phase = 'gameover';
-  sound.hurt();
-  saveGameState(true);
-
-  const curChap = S.chapter;
-  const curImg = document.getElementById('resultCritterImg');
-  const nextImg = document.getElementById('resultNextCritterImg');
-  const arrowEl = document.getElementById('resultArrow');
-  const titleEl = document.getElementById('resultTitle');
-  const subEl = document.getElementById('resultSub');
-  const statsEl = document.getElementById('resultStatsBox');
-  const primaryBtn = document.getElementById('resultPrimaryBtn');
-
-  if (curImg) curImg.src = curChap.icon;
-  if (nextImg) nextImg.src = 'icons/huggy.jpg';
-  if (arrowEl) arrowEl.textContent = '💔';
-  if (titleEl) titleEl.textContent = '💔 OUT OF LIVES! · 挑战失败，再试一次！';
-  if (subEl) subEl.textContent = `${curChap.critterName} still has ${S.beansLeft} ${curChap.beanEmoji} beans left to chomp!`;
-  if (statsEl) {
-    statsEl.textContent = `⭐ Score: ${S.score} · 🏆 Best: ${S.highScore} · 🫘 Beans Eaten: ${S.beansEaten}/${S.totalBeans}`;
-  }
-  if (primaryBtn) {
-    primaryBtn.textContent = '🔄 Retry Chapter · 重玩本章';
+    statsEl.textContent = `⭐ Score: ${S.score} · 🏆 Best: ${S.highScore} · 🛡️ Immortal Mode · ✅ Cleared: ${S.clearedChapters.size}/${CHAPTERS.length}`;
   }
 
   document.getElementById('resultModal')?.classList.remove('hidden');
 }
 
 // ============================================================================
-// GRID COLLISION & MOVEMENT HELPERS
+// GRID COLLISION & EXACT TILE-CENTER CORRIDOR PHYSICS (ZERO WALL STICKING!)
 // ============================================================================
 function wrapCol(c) {
-  if (c < 0) return COLS - 1;
-  if (c >= COLS) return 0;
+  if (c < 0) return ((c % COLS) + COLS) % COLS;
+  if (c >= COLS) return c % COLS;
   return c;
 }
 
 function isTileWalkableForPlayer(c, r) {
-  if (r < 0 || r >= ROWS) return false;
+  if (r <= 0 || r >= ROWS - 1) return false;
   const wc = wrapCol(c);
   const cell = S.grid[r]?.[wc];
   return cell !== '#' && cell !== '-' && cell !== 'G';
 }
 
-function isTileWalkableForGhost(c, r) {
-  if (r < 0 || r >= ROWS) return false;
+function isTileWalkableForGhost(c, r, allowGhostHouse = false) {
+  if (r <= 0 || r >= ROWS - 1) return false;
   const wc = wrapCol(c);
   const cell = S.grid[r]?.[wc];
-  return cell !== '#';
+  if (cell === '#') return false;
+  if (!allowGhostHouse && (cell === '-' || cell === 'G')) return false;
+  return true;
 }
 
-function canMoveInDir(x, y, dirKey, isGhost = false) {
+function canMoveInDir(x, y, dirKey, isGhost = false, allowGhostHouse = false) {
   const d = DIRS[dirKey];
   if (!d || (d.dx === 0 && d.dy === 0)) return false;
   const cx = Math.round(x);
   const cy = Math.round(y);
   const targetC = cx + d.dx;
   const targetR = cy + d.dy;
-  return isGhost ? isTileWalkableForGhost(targetC, targetR) : isTileWalkableForPlayer(targetC, targetR);
+  return isGhost
+    ? isTileWalkableForGhost(targetC, targetR, allowGhostHouse)
+    : isTileWalkableForPlayer(targetC, targetR);
+}
+
+// Self-healing safety check: if any entity is ever off a walkable tile, snap to nearest walkable tile
+function ensureEntityOnWalkableTile(ent, isGhost = false, allowGhostHouse = false) {
+  const c = wrapCol(Math.round(ent.x));
+  const r = Math.max(1, Math.min(ROWS - 2, Math.round(ent.y)));
+  const ok = isGhost
+    ? isTileWalkableForGhost(c, r, allowGhostHouse)
+    : isTileWalkableForPlayer(c, r);
+  if (ok) return;
+
+  let bestC = isGhost ? 10 : S.player.spawnX;
+  let bestR = isGhost ? 9 : S.player.spawnY;
+  let bestDist = Infinity;
+  for (let rr = 1; rr < ROWS - 1; rr++) {
+    for (let cc = 0; cc < COLS; cc++) {
+      const valid = isGhost
+        ? isTileWalkableForGhost(cc, rr, allowGhostHouse)
+        : isTileWalkableForPlayer(cc, rr);
+      if (valid) {
+        const dist = Math.hypot(cc - ent.x, rr - ent.y);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestC = cc;
+          bestR = rr;
+        }
+      }
+    }
+  }
+  ent.x = bestC;
+  ent.y = bestR;
+}
+
+// Exact tile-center corridor movement: never passes a tile center if the next tile in direction d is a wall!
+function moveAlongCorridor(ent, dirKey, rawStep, isGhost = false, allowGhostHouse = false) {
+  const d = DIRS[dirKey];
+  if (!d || (d.dx === 0 && d.dy === 0)) return false;
+
+  const step = Math.min(rawStep, 0.35);
+  const curC = Math.round(ent.x);
+  const curR = Math.round(ent.y);
+
+  // Keep perpendicular axis strictly aligned to the corridor center
+  if (d.dx !== 0) ent.y = curR;
+  if (d.dy !== 0) ent.x = curC;
+
+  const aheadC = curC + d.dx;
+  const aheadR = curR + d.dy;
+  const aheadWalkable = isGhost
+    ? isTileWalkableForGhost(aheadC, aheadR, allowGhostHouse)
+    : isTileWalkableForPlayer(aheadC, aheadR);
+
+  let nx = ent.x + d.dx * step;
+  let ny = ent.y + d.dy * step;
+  let moved = true;
+
+  if (!aheadWalkable) {
+    // Cannot pass (curC, curR) toward (aheadC, aheadR)! Clamp cleanly at tile center (curC, curR).
+    if ((d.dx > 0 && nx >= curC) || (d.dx < 0 && nx <= curC)) {
+      nx = curC;
+      moved = Math.abs(ent.x - curC) > 1e-4;
+    }
+    if ((d.dy > 0 && ny >= curR) || (d.dy < 0 && ny <= curR)) {
+      ny = curR;
+      moved = Math.abs(ent.y - curR) > 1e-4;
+    }
+  }
+
+  // Horizontal tunnel wrap-around
+  if (nx < -0.45) nx += COLS;
+  else if (nx >= COLS - 0.55) nx -= COLS;
+
+  ent.x = nx;
+  ent.y = Math.max(1, Math.min(ROWS - 2, ny));
+  return moved;
 }
 
 // ============================================================================
@@ -486,7 +536,7 @@ export function updateGame(dt) {
   // Bonus Fruit countdown & collection
   if (S.bonusFruit) {
     S.bonusFruit.timer -= dt;
-    if (Math.hypot(p.x - S.bonusFruit.x, p.y - S.bonusFruit.y) <= 0.65) {
+    if (Math.hypot(p.x - S.bonusFruit.x, p.y - S.bonusFruit.y) <= 0.72) {
       sound.fruit();
       addScore(S.bonusFruit.points);
       addPopup(S.bonusFruit.x, S.bonusFruit.y, `+${S.bonusFruit.points} ${S.bonusFruit.emoji}!`, '#ffd166');
@@ -497,7 +547,7 @@ export function updateGame(dt) {
     }
   }
 
-  //Bobby Shield passive gentle bean pull
+  // Bobby Shield passive gentle bean pull
   if (p.shieldTimer > 0 && S.chapter.id === 'bobby') {
     vacuumNearbyBeans(1.85);
   }
@@ -505,7 +555,9 @@ export function updateGame(dt) {
   // --------------------------------------------------------------------------
   // 1. UPDATE PLAYER CRITTER HEAD MOVEMENT & MOUTH CHOMPING ANIMATION
   // --------------------------------------------------------------------------
-  const speedMult = p.dashTimer > 0 ? 1.48 : 1.0;
+  ensureEntityOnWalkableTile(p, false, false);
+
+  const speedMult = p.dashTimer > 0 ? 1.42 : 1.0;
   const step = preset.playerSpeed * speedMult * dt;
 
   // Try switching to buffered nextDir when near tile center or reversing direction
@@ -514,12 +566,12 @@ export function updateGame(dt) {
     const nxtD = DIRS[p.nextDir] || DIRS.none;
     const isReverse = (curD.dx !== 0 && curD.dx === -nxtD.dx) || (curD.dy !== 0 && curD.dy === -nxtD.dy);
 
-    if (isReverse) {
+    if (isReverse && canMoveInDir(p.x, p.y, p.nextDir, false)) {
       p.dir = p.nextDir;
       p.facingAngle = nxtD.angle;
     } else {
       const distToCenter = Math.hypot(p.x - Math.round(p.x), p.y - Math.round(p.y));
-      if (distToCenter <= 0.45 && canMoveInDir(Math.round(p.x), Math.round(p.y), p.nextDir, false)) {
+      if (distToCenter <= 0.46 && canMoveInDir(Math.round(p.x), Math.round(p.y), p.nextDir, false)) {
         p.x = Math.round(p.x);
         p.y = Math.round(p.y);
         p.dir = p.nextDir;
@@ -531,41 +583,29 @@ export function updateGame(dt) {
   if (p.dir !== 'none') {
     const d = DIRS[p.dir];
     p.facingAngle = d.angle;
-    let nx = p.x + d.dx * step;
-    let ny = p.y + d.dy * step;
+    const moved = moveAlongCorridor(p, p.dir, step, false, false);
 
-    // Horizontal tunnel wrap-around
-    if (nx < -0.45) nx = COLS - 0.55;
-    else if (nx > COLS - 0.55) nx = -0.45;
-
-    // Check wall ahead
-    const checkC = d.dx > 0 ? Math.floor(nx + 0.46) : (d.dx < 0 ? Math.ceil(nx - 0.46) : Math.round(nx));
-    const checkR = d.dy > 0 ? Math.floor(ny + 0.46) : (d.dy < 0 ? Math.ceil(ny - 0.46) : Math.round(ny));
-
-    if (isTileWalkableForPlayer(checkC, checkR)) {
-      p.x = nx;
-      p.y = ny;
-      // Keep perpendicular coordinate cleanly centered on corridor
-      if (d.dx !== 0) p.y += (Math.round(p.y) - p.y) * Math.min(1, dt * 16);
-      if (d.dy !== 0) p.x += (Math.round(p.x) - p.x) * Math.min(1, dt * 16);
-
+    if (moved) {
       // Animate WAKA-WAKA chomping mouth!
       p.chompPhase += dt * 15 * speedMult;
       p.mouthAngle = 0.05 + Math.abs(Math.sin(p.chompPhase)) * 0.68;
     } else {
-      // Snap to tile center on wall stop
-      p.x = Math.round(p.x);
-      p.y = Math.round(p.y);
-      p.mouthAngle = 0.22;
+      // Reached wall at tile center: if buffered nextDir is open, turn immediately!
+      if (p.nextDir !== 'none' && p.nextDir !== p.dir && canMoveInDir(p.x, p.y, p.nextDir, false)) {
+        p.dir = p.nextDir;
+        p.facingAngle = DIRS[p.nextDir].angle;
+      }
+      p.chompPhase += dt * 6;
+      p.mouthAngle = 0.14 + Math.abs(Math.sin(p.chompPhase)) * 0.18;
     }
   } else {
-    p.chompPhase += dt * 4;
+    p.chompPhase += dt * 5;
     p.mouthAngle = 0.14 + Math.abs(Math.sin(p.chompPhase)) * 0.16;
   }
 
   // Check if Critter Head chomps a bean on the current tile!
   const curCol = wrapCol(Math.round(p.x));
-  const curRow = Math.max(0, Math.min(ROWS - 1, Math.round(p.y)));
+  const curRow = Math.max(1, Math.min(ROWS - 2, Math.round(p.y)));
   consumeTileBean(curCol, curRow);
   if (S.phase !== 'playing') return;
 
@@ -591,51 +631,57 @@ export function updateGame(dt) {
     const gStep = gSpeed * dt;
     g.decisionCooldown = Math.max(0, (g.decisionCooldown || 0) - gStep);
 
-    // Ghost inside Ghost House moves straight up through the gate to (10, 8)
     const gc = Math.round(g.x);
     const gr = Math.round(g.y);
     const cellHere = S.grid[gr]?.[wrapCol(gc)];
-    if (g.state !== 'eaten' && (cellHere === 'G' || cellHere === '-')) {
+
+    // Ghost inside Ghost House (row 10-11, cols 9-11) smoothly exits straight up to (10, 9)
+    if (g.state !== 'eaten' && (cellHere === 'G' || cellHere === '-' || (g.y > 9.05 && Math.abs(g.x - 10) <= 1.5 && gr >= 10 && gr <= 11))) {
       if (Math.abs(g.x - 10) > 0.12) {
-        g.x += Math.sign(10 - g.x) * gStep;
+        g.x += Math.sign(10 - g.x) * Math.min(gStep, Math.abs(10 - g.x));
       } else {
         g.x = 10;
-        g.y -= gStep;
+        g.y = Math.max(9.0, g.y - gStep);
         g.dir = 'up';
+        if (g.y <= 9.02) {
+          g.y = 9.0;
+          g.dir = g.index % 2 === 0 ? 'left' : 'right';
+          g.decisionCooldown = 0.25;
+        }
       }
     } else {
-      // Choose direction at intersections
+      ensureEntityOnWalkableTile(g, true, false);
       const distCenter = Math.hypot(g.x - gc, g.y - gr);
-      if (distCenter <= 0.18 && g.decisionCooldown <= 0) {
+
+      if (distCenter <= 0.22 && g.decisionCooldown <= 0) {
         g.x = gc;
         g.y = gr;
-        g.decisionCooldown = 0.48;
+        g.decisionCooldown = 0.45;
 
-        if (g.state === 'eaten' && Math.hypot(g.x - g.homeX, g.y - g.homeY) <= 0.6) {
+        if (g.state === 'eaten' && Math.hypot(g.x - g.homeX, g.y - g.homeY) <= 0.75) {
           g.state = 'normal';
           g.x = g.homeX;
           g.y = g.homeY;
+          g.releaseTimer = 1.2;
+          g.dir = g.index % 2 === 0 ? 'left' : 'right';
         }
 
         const candidateDirs = ['up', 'left', 'down', 'right'].filter(dk => {
           if (dk === oppositeDir[g.dir]) return false;
-          const d = DIRS[dk];
-          const nc = gc + d.dx;
-          const nr = gr + d.dy;
-          const nextCell = S.grid[nr]?.[wrapCol(nc)];
-          if (g.state !== 'eaten' && (nextCell === '-' || nextCell === 'G')) return false;
-          return isTileWalkableForGhost(nc, nr);
+          return canMoveInDir(gc, gr, dk, true, false);
         });
 
         if (candidateDirs.length === 0) {
-          // Dead end or reverse allowed
           const rev = oppositeDir[g.dir];
-          if (canMoveInDir(gc, gr, rev, true)) g.dir = rev;
-        } else if (g.state === 'frightened' || (g.state === 'normal' && Math.random() < 0.35)) {
-          // Frightened or relaxed wander so ghosts don't aggressively swarm
+          if (canMoveInDir(gc, gr, rev, true, false)) {
+            g.dir = rev;
+          } else {
+            const anyOpen = ['up', 'left', 'down', 'right'].find(dk => canMoveInDir(gc, gr, dk, true, false));
+            if (anyOpen) g.dir = anyOpen;
+          }
+        } else if (g.state === 'frightened' || (g.state === 'normal' && Math.random() < 0.38)) {
           g.dir = candidateDirs[Math.floor(Math.random() * candidateDirs.length)];
         } else {
-          // Target tile: home if eaten, player (with personality offset) if normal
           let tx = p.x;
           let ty = p.y;
           if (g.state === 'eaten') {
@@ -664,27 +710,15 @@ export function updateGame(dt) {
         }
       }
 
-      const gd = DIRS[g.dir] || DIRS.left;
-      let ngx = g.x + gd.dx * gStep;
-      let ngy = g.y + gd.dy * gStep;
-      if (ngx < -0.45) ngx = COLS - 0.55;
-      else if (ngx > COLS - 0.55) ngx = -0.45;
-
-      const cCheck = gd.dx > 0 ? Math.floor(ngx + 0.45) : (gd.dx < 0 ? Math.ceil(ngx - 0.45) : Math.round(ngx));
-      const rCheck = gd.dy > 0 ? Math.floor(ngy + 0.45) : (gd.dy < 0 ? Math.ceil(ngy - 0.45) : Math.round(ngy));
-      if (isTileWalkableForGhost(cCheck, rCheck)) {
-        g.x = ngx;
-        g.y = ngy;
-      } else {
-        g.x = Math.round(g.x);
-        g.y = Math.round(g.y);
+      const gMoved = moveAlongCorridor(g, g.dir, gStep, true, false);
+      if (!gMoved) {
         g.decisionCooldown = 0;
       }
     }
 
     // Check collision between Critter Head and Ghost! (IMMORTAL / NO-DEATH MODE!)
     const distPG = Math.hypot(g.x - p.x, g.y - p.y);
-    if (distPG <= 0.68) {
+    if (distPG <= 0.72 && g.state !== 'eaten') {
       if (g.state === 'frightened') {
         g.state = 'eaten';
         S.ghostCombo = Math.min(4, S.ghostCombo + 1);
@@ -694,16 +728,15 @@ export function updateGame(dt) {
         spawnParticles(g.x, g.y, '#4cc9f0', 16);
         addPopup(g.x, g.y, `👻 +${pts}!`, '#72efdd');
         updateHUD();
-      } else if (g.state === 'normal') {
-        // Never die on collision! Bounce & scare the ghost away so the player can chomp freely!
-        g.state = 'frightened';
-        g.dir = oppositeDir[g.dir] || 'up';
-        S.frightTimer = Math.max(S.frightTimer, 3.2);
-        p.invulnTimer = Math.max(p.invulnTimer, 1.5);
-        sound.powerPellet();
-        spawnParticles(g.x, g.y, S.chapter.ringColor, 14);
-        addPopup(p.x, p.y, `🛡️ BOING! (不死弹开!)`, '#ffd166');
-        showBanner(`🛡️ Boing! Bumped Ghost Away (No-Death Mode · 撞到不死，直接弹晕反派！)`, 1.6);
+      } else {
+        // Immortal Mode (撞到也不死): Bumping a normal ghost knocks it back to Ghost House as eaten eyes (+100 pts)!
+        g.state = 'eaten';
+        addScore(100);
+        p.invulnTimer = Math.max(p.invulnTimer, 1.2);
+        sound.eatGhost();
+        spawnParticles(g.x, g.y, S.chapter.ringColor, 16);
+        addPopup(p.x, p.y, `🛡️ +100 BOING! (撞到不死!)`, '#ffd166');
+        showBanner(`🛡️ Immortal Bump! Sent ${g.name} flying (+100 · 撞到不死，直接撞飞反派！)`, 1.6);
         updateHUD();
       }
     }
